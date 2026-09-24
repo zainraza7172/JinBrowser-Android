@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Extract browser
-        run: unzip -q JinBrowser-Android-v0.2-source.zip
+        run: unzip -q JinBrowser-Android-v0.3-source.zip
 
       - uses: actions/setup-java@v4
         with:
