@@ -1,62 +1,53 @@
-name: Build Jin Browser v0.5 APK
-
+name: Build Jin Browser v0.6 APK
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - 'JinBrowser-Android-v0.5-source.zip'
+      - 'JinBrowser-Android-v0.6-source.zip'
       - '.github/workflows/build-apk.yml'
-
 permissions:
   contents: read
-
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-
-      - name: Extract v0.5 source
+      - name: Extract versioned source
         run: |
-          unzip -q JinBrowser-Android-v0.5-source.zip
+          unzip -q JinBrowser-Android-v0.6-source.zip
           test -f JinBrowser-Android/app/build.gradle
-          grep -q "versionName '0.5.0'" JinBrowser-Android/app/build.gradle
-
+          grep -q "versionName '0.6.0'" JinBrowser-Android/app/build.gradle
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
       - uses: android-actions/setup-android@v4
-
-      - name: Install Android SDK 35
+      - name: Install SDK platform
         run: sdkmanager --install 'platforms;android-35' 'build-tools;35.0.0'
-
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-
-      - name: Run source and downloader unit tests
+      - name: Test browser, downloads, blocker and home script
         working-directory: JinBrowser-Android
         run: |
+          set -e
           python3 tests/project_smoke.py
+          node --check tests/home-script-check.js
           mkdir -p /tmp/jin-unit
           javac -d /tmp/jin-unit \
-            app/src/main/java/com/jinbrowser/app/{RangeMath,DownloadProgress,MimeTypes}.java \
-            tests/{RangeMathTest,DownloadProgressTest,MimeTypesTest}.java
-          java -cp /tmp/jin-unit com.jinbrowser.app.RangeMathTest
-          java -cp /tmp/jin-unit com.jinbrowser.app.DownloadProgressTest
-          java -cp /tmp/jin-unit com.jinbrowser.app.MimeTypesTest
-
-      - name: Build v0.5 Android debug APK
+            app/src/main/java/com/jinbrowser/app/{RangeMath,DownloadProgress,MimeTypes,AdBlockRules}.java \
+            tests/{RangeMathTest,DownloadProgressTest,MimeTypesTest,AdBlockRulesTest}.java
+          for test in RangeMathTest DownloadProgressTest MimeTypesTest AdBlockRulesTest; do
+            java -cp /tmp/jin-unit com.jinbrowser.app.$test
+          done
+      - name: Compile v0.6 installable debug APK
         working-directory: JinBrowser-Android
         run: gradle --no-daemon :app:assembleDebug --stacktrace
-
-      - name: Upload installable APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: JinBrowser-v0.5-debug-APK
+          name: JinBrowser-v0.6-debug-APK
           path: JinBrowser-Android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
